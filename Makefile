@@ -105,6 +105,7 @@ test:
 	python3 tools/test_sdl_sdk.py
 	python3 tests/ps5/test_gpu_clear_state.py
 	python3 tests/ps5/test_vertex_layout_state.py
+	python3 tests/ps5/test_vertex_buffer_references.py
 	python3 tests/ps5/test_vertex_format_table.py
 	python3 tests/ps5/test_vertex_format_compile.py
 	python3 tests/ps5/test_gpu_blit.py
