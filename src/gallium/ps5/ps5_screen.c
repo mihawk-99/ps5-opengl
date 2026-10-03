@@ -17071,29 +17071,31 @@ ps5_set_vertex_buffers(struct pipe_context *base, unsigned count,
                        const struct pipe_vertex_buffer *buffers)
 {
    struct ps5_context *context = (struct ps5_context *)base;
+   struct pipe_vertex_buffer next[PIPE_MAX_ATTRIBS];
+   bool valid = count && count <= PIPE_MAX_ATTRIBS && buffers;
    unsigned index;
 
+   for (index = 0; valid && index < count; ++index)
+      valid = !buffers[index].is_user_buffer;
+   /* Take the new references before dropping the old ones: u_vbuf passes
+    * back raw pointers it kept from an earlier call (it does not own the
+    * references), so a buffer in this call can be one this context already
+    * holds, and the context's reference may be the last. Dropping the old
+    * references first destroys it, and referencing it afterwards fails
+    * pipe_reference_described's "src had to be referenced" assertion (a
+    * released resource) in builds with assertions on. */
+   memset(next, 0, sizeof(next));
+   for (index = 0; valid && index < count; ++index) {
+      next[index] = buffers[index];
+      next[index].buffer.resource = NULL;
+      pipe_resource_reference(&next[index].buffer.resource,
+                             buffers[index].buffer.resource);
+   }
    for (index = 0; index < context->vertex_buffer_count; ++index)
       pipe_resource_reference(
          &context->vertex_buffers[index].buffer.resource, NULL);
-   memset(context->vertex_buffers, 0, sizeof(context->vertex_buffers));
-   context->vertex_buffer_count = 0;
-   if (!count)
-      return;
-   if (count > PIPE_MAX_ATTRIBS || !buffers)
-      return;
-   for (index = 0; index < count; ++index) {
-      if (buffers[index].is_user_buffer)
-         return;
-   }
-   for (index = 0; index < count; ++index) {
-      context->vertex_buffers[index] = buffers[index];
-      context->vertex_buffers[index].buffer.resource = NULL;
-      pipe_resource_reference(
-         &context->vertex_buffers[index].buffer.resource,
-         buffers[index].buffer.resource);
-   }
-   context->vertex_buffer_count = count;
+   memcpy(context->vertex_buffers, next, sizeof(context->vertex_buffers));
+   context->vertex_buffer_count = valid ? count : 0;
 }
 
 static struct pipe_stream_output_target *
