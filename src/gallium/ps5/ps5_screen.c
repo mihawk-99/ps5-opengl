@@ -1465,6 +1465,47 @@ ps5_packed_vertex_format(enum pipe_format format)
    case PIPE_FORMAT_R10G10B10A2_SSCALED:
    case PIPE_FORMAT_B10G10R10A2_SSCALED:
    case PIPE_FORMAT_R11G11B10_FLOAT:
+   case PIPE_FORMAT_R8_UNORM:
+   case PIPE_FORMAT_R8_SNORM:
+   case PIPE_FORMAT_R8_USCALED:
+   case PIPE_FORMAT_R8_SSCALED:
+   case PIPE_FORMAT_R8_SINT:
+   case PIPE_FORMAT_R8G8_USCALED:
+   case PIPE_FORMAT_R8G8_SSCALED:
+   case PIPE_FORMAT_R8G8_SINT:
+   case PIPE_FORMAT_R8G8B8_UNORM:
+   case PIPE_FORMAT_R8G8B8_SNORM:
+   case PIPE_FORMAT_R8G8B8_USCALED:
+   case PIPE_FORMAT_R8G8B8_SSCALED:
+   case PIPE_FORMAT_R8G8B8_UINT:
+   case PIPE_FORMAT_R8G8B8_SINT:
+   case PIPE_FORMAT_R8G8B8A8_USCALED:
+   case PIPE_FORMAT_R8G8B8A8_SSCALED:
+   case PIPE_FORMAT_R8G8B8A8_SINT:
+   case PIPE_FORMAT_R16_UNORM:
+   case PIPE_FORMAT_R16_SNORM:
+   case PIPE_FORMAT_R16_USCALED:
+   case PIPE_FORMAT_R16_SSCALED:
+   case PIPE_FORMAT_R16_UINT:
+   case PIPE_FORMAT_R16_SINT:
+   case PIPE_FORMAT_R16G16_USCALED:
+   case PIPE_FORMAT_R16G16_SSCALED:
+   case PIPE_FORMAT_R16G16_UINT:
+   case PIPE_FORMAT_R16G16_SINT:
+   case PIPE_FORMAT_R16G16B16_UNORM:
+   case PIPE_FORMAT_R16G16B16_SNORM:
+   case PIPE_FORMAT_R16G16B16_USCALED:
+   case PIPE_FORMAT_R16G16B16_SSCALED:
+   case PIPE_FORMAT_R16G16B16_UINT:
+   case PIPE_FORMAT_R16G16B16_SINT:
+   case PIPE_FORMAT_R16G16B16A16_UNORM:
+   case PIPE_FORMAT_R16G16B16A16_SNORM:
+   case PIPE_FORMAT_R16G16B16A16_USCALED:
+   case PIPE_FORMAT_R16G16B16A16_SSCALED:
+   case PIPE_FORMAT_R16G16B16A16_UINT:
+   case PIPE_FORMAT_R16G16B16A16_SINT:
+   case PIPE_FORMAT_R16_FLOAT:
+   case PIPE_FORMAT_R16G16B16_FLOAT:
       return true;
    default:
       return false;
@@ -4814,6 +4855,7 @@ ps5_resource_create_unlocked(struct pipe_screen *screen,
    size_t size;
    size_t allocation_size;
    size_t allocation_alignment = PS5_DIRECT_ALIGNMENT;
+   size_t color_alignment = PS5_RENDER_ALIGNMENT;
    size_t render_staging_offset = 0;
    size_t render_staging_size = 0;
    size_t depth_staging_offset = 0;
@@ -4895,16 +4937,25 @@ ps5_resource_create_unlocked(struct pipe_screen *screen,
             tiled_size *= templ->array_size;
          }
 
+         /* A surface is laid out in 64 KiB tiles and the staging path below
+          * already renders from 64 KiB-aligned surfaces; the 2 MiB alignment
+          * is for large targets. Mesa gives every renderable texture the
+          * render-target bind, so padding each one to 2 MiB made a 16x16
+          * texture cost 2 MiB of the console's direct memory, which games
+          * with thousands of small textures ran out of. */
+         if (tiled_size < PS5_RENDER_ALIGNMENT) {
+            color_alignment = PS5_COLOR_TARGET_ALIGNMENT;
+         }
          allocation_size =
-            (tiled_size + PS5_RENDER_ALIGNMENT - 1u) &
-            ~(size_t)(PS5_RENDER_ALIGNMENT - 1u);
+            (tiled_size + color_alignment - 1u) &
+            ~(size_t)(color_alignment - 1u);
       }
 #ifdef PS5_PUBLIC_STENCIL_TEST
       if (!(templ->bind & PIPE_BIND_DISPLAY_TARGET))
          printf("[ps5-gallium] public-stencil-offscreen-color bytes=%zu buffers=1\n",
                 allocation_size);
 #endif
-      allocation_alignment = PS5_RENDER_ALIGNMENT;
+      allocation_alignment = color_alignment;
    } else if (render_staging) {
       const unsigned layers = ps5_texture_level_layers(templ, 0);
       size_t combined;
@@ -8659,6 +8710,71 @@ ps5_get_timestamp(struct pipe_screen *screen)
    ps5_screen_submit_lock(NULL);
    ps5_screen_submit_unlock(NULL);
    return os_time_get_nano();
+}
+
+int32_t sceKernelAvailableDirectMemorySize(int64_t start, int64_t end,
+                                           size_t alignment,
+                                           int64_t *physical_address,
+                                           size_t *size);
+
+/* GL_NVX_gpu_memory_info and GL_ATI_meminfo. The console has one pool of
+ * direct memory (12 GiB) that the process's CPU allocations and every GPU
+ * resource share, and the kernel only answers "the first free range in
+ * [start, end)", so the free bytes are found by splitting the pool around
+ * every range the kernel reports. A pool so fragmented that the walk runs out
+ * of queries is reported as the free bytes found so far: the figure is a lower
+ * bound, never more than is really free. */
+static void
+ps5_query_memory_info(struct pipe_screen *screen,
+                      struct pipe_memory_info *info)
+{
+   struct ps5_direct_span { int64_t low, high; } pending[64];
+   struct ps5_direct_span current = { 0, sceKernelGetDirectMemorySize() };
+   const int64_t total = current.high;
+   uint64_t free_bytes = 0;
+   unsigned count = 0, queries = 0;
+
+   (void)screen;
+   memset(info, 0, sizeof(*info));
+   for (;;) {
+      if (current.high - current.low >= (int64_t)PS5_DIRECT_ALIGNMENT &&
+          queries++ < 512) {
+         int64_t start = 0;
+         size_t bytes = 0;
+         const int32_t result = sceKernelAvailableDirectMemorySize(
+            current.low, current.high, PS5_DIRECT_ALIGNMENT, &start, &bytes);
+
+         /* An occupied interval is answered with ENOMEM: an empty branch. */
+         if ((uint32_t)result == UINT32_C(0x8002000c))
+            bytes = 0;
+         else if (result)
+            break;
+         if (bytes && start >= current.low && start < current.high &&
+             bytes <= (uint64_t)(current.high - start)) {
+            struct ps5_direct_span left = { current.low, start };
+            struct ps5_direct_span right = { start + (int64_t)bytes,
+                                             current.high };
+
+            free_bytes += bytes;
+            /* The smaller side first keeps the pending branches few. */
+            if (left.high - left.low > right.high - right.low) {
+               struct ps5_direct_span swap = left;
+               left = right;
+               right = swap;
+            }
+            if (right.high - right.low >= (int64_t)PS5_DIRECT_ALIGNMENT &&
+                count < ARRAY_SIZE(pending))
+               pending[count++] = right;
+            current = left;
+            continue;
+         }
+      }
+      if (!count)
+         break;
+      current = pending[--count];
+   }
+   info->total_device_memory = (unsigned)(total >> 10);
+   info->avail_device_memory = (unsigned)(free_bytes >> 10);
 }
 
 static struct pipe_query *
@@ -13963,6 +14079,129 @@ ps5_vertex_format(enum pipe_format format, PsbcVertexFormat *out)
    case PIPE_FORMAT_B10G10R10A2_SSCALED:
       *out = PSBC_VERTEX_FORMAT_B10G10R10A2_SSCALED;
       return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8_UNORM:
+      *out = PSBC_VERTEX_FORMAT_R8_UNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8_SNORM:
+      *out = PSBC_VERTEX_FORMAT_R8_SNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R8_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R8_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8_SINT:
+      *out = PSBC_VERTEX_FORMAT_R8_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R8G8_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R8G8_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8_SINT:
+      *out = PSBC_VERTEX_FORMAT_R8G8_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8_UNORM:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8_UNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8_SNORM:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8_SNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8_UINT:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8_UINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8_SINT:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8A8_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8A8_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8A8_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8A8_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R8G8B8A8_SINT:
+      *out = PSBC_VERTEX_FORMAT_R8G8B8A8_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_UNORM:
+      *out = PSBC_VERTEX_FORMAT_R16_UNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_SNORM:
+      *out = PSBC_VERTEX_FORMAT_R16_SNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R16_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R16_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_UINT:
+      *out = PSBC_VERTEX_FORMAT_R16_UINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_SINT:
+      *out = PSBC_VERTEX_FORMAT_R16_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R16G16_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R16G16_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16_UINT:
+      *out = PSBC_VERTEX_FORMAT_R16G16_UINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16_SINT:
+      *out = PSBC_VERTEX_FORMAT_R16G16_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_UNORM:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_UNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_SNORM:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_SNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_UINT:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_UINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_SINT:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16A16_UNORM:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16A16_UNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16A16_SNORM:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16A16_SNORM;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16A16_USCALED:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16A16_USCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16A16_SSCALED:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16A16_SSCALED;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16A16_UINT:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16A16_UINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16A16_SINT:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16A16_SINT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16_FLOAT:
+      *out = PSBC_VERTEX_FORMAT_R16_FLOAT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
+   case PIPE_FORMAT_R16G16B16_FLOAT:
+      *out = PSBC_VERTEX_FORMAT_R16G16B16_FLOAT;
+      return PS5_ENABLE_PACKED_VERTEX_CANDIDATE;
    default:
       return false;
    }
@@ -14020,8 +14259,18 @@ ps5_vertex_format_alignment(enum pipe_format format)
    case PIPE_FORMAT_R64G64B64_FLOAT:
    case PIPE_FORMAT_R64G64B64A64_FLOAT:
       return 8;
-   default:
+   default: {
+      /* Array formats with 8- or 16-bit channels (the 3-component ones among
+       * them have 3- and 6-byte elements) are only aligned to their channel. */
+      const struct util_format_description *description =
+         util_format_description(format);
+
+      if (description && description->is_array &&
+          (description->channel[0].size == 8 ||
+           description->channel[0].size == 16))
+         return description->channel[0].size / 8u;
       return 4;
+   }
    }
 }
 
@@ -17767,6 +18016,7 @@ ps5_screen_create(void)
    screen->base.fence_reference = ps5_fence_reference;
    screen->base.fence_finish = ps5_fence_finish;
    screen->base.get_timestamp = ps5_get_timestamp;
+   screen->base.query_memory_info = ps5_query_memory_info;
 
    caps = (struct pipe_caps *)&screen->base.caps;
    /* Buffer-only unsynchronized maps don't touch context state. Their callers
@@ -17778,6 +18028,7 @@ ps5_screen_create(void)
    caps->graphics = true;
    caps->accelerated = 1;
    caps->uma = true;
+   caps->query_memory_info = true;
    caps->npot_textures = true;
    caps->texture_shadow_map = true;
    caps->native_fp32_depth = true;

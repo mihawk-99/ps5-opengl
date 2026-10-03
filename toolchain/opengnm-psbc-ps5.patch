@@ -41,10 +41,10 @@ index 21c97d3..5596cb2 100644
  # === Static library (libpsbc.a) ===
  # Contains all Mesa objects + psbc compilation logic. Can be linked
 diff --git a/cmd/psbc/main.c b/cmd/psbc/main.c
-index 945737d..b2755c7 100644
+index 945737d..d566d40 100644
 --- a/cmd/psbc/main.c
 +++ b/cmd/psbc/main.c
-@@ -18,15 +18,78 @@ static const char* VERSION_STR = "0.1.0";
+@@ -18,15 +18,135 @@ static const char* VERSION_STR = "0.1.0";
  
  typedef struct {
  	const char* inputfile;
@@ -93,6 +93,63 @@ index 945737d..b2755c7 100644
 +	if (!strcmp(name, "r32g32_uint")) return PSBC_VERTEX_FORMAT_R32G32_UINT;
 +	if (!strcmp(name, "r32g32b32_uint")) return PSBC_VERTEX_FORMAT_R32G32B32_UINT;
 +	if (!strcmp(name, "r32g32b32a32_uint")) return PSBC_VERTEX_FORMAT_R32G32B32A32_UINT;
++	if (!strcmp(name, "r8_unorm")) return PSBC_VERTEX_FORMAT_R8_UNORM;
++	if (!strcmp(name, "r8_snorm")) return PSBC_VERTEX_FORMAT_R8_SNORM;
++	if (!strcmp(name, "r8_uscaled")) return PSBC_VERTEX_FORMAT_R8_USCALED;
++	if (!strcmp(name, "r8_sscaled")) return PSBC_VERTEX_FORMAT_R8_SSCALED;
++	if (!strcmp(name, "r8_sint")) return PSBC_VERTEX_FORMAT_R8_SINT;
++	if (!strcmp(name, "r8g8_uscaled")) return PSBC_VERTEX_FORMAT_R8G8_USCALED;
++	if (!strcmp(name, "r8g8_sscaled")) return PSBC_VERTEX_FORMAT_R8G8_SSCALED;
++	if (!strcmp(name, "r8g8_sint")) return PSBC_VERTEX_FORMAT_R8G8_SINT;
++	if (!strcmp(name, "r8g8b8_unorm")) return PSBC_VERTEX_FORMAT_R8G8B8_UNORM;
++	if (!strcmp(name, "r8g8b8_snorm")) return PSBC_VERTEX_FORMAT_R8G8B8_SNORM;
++	if (!strcmp(name, "r8g8b8_uscaled")) return PSBC_VERTEX_FORMAT_R8G8B8_USCALED;
++	if (!strcmp(name, "r8g8b8_sscaled")) return PSBC_VERTEX_FORMAT_R8G8B8_SSCALED;
++	if (!strcmp(name, "r8g8b8_uint")) return PSBC_VERTEX_FORMAT_R8G8B8_UINT;
++	if (!strcmp(name, "r8g8b8_sint")) return PSBC_VERTEX_FORMAT_R8G8B8_SINT;
++	if (!strcmp(name, "r8g8b8a8_uscaled")) return PSBC_VERTEX_FORMAT_R8G8B8A8_USCALED;
++	if (!strcmp(name, "r8g8b8a8_sscaled")) return PSBC_VERTEX_FORMAT_R8G8B8A8_SSCALED;
++	if (!strcmp(name, "r8g8b8a8_sint")) return PSBC_VERTEX_FORMAT_R8G8B8A8_SINT;
++	if (!strcmp(name, "r16_unorm")) return PSBC_VERTEX_FORMAT_R16_UNORM;
++	if (!strcmp(name, "r16_snorm")) return PSBC_VERTEX_FORMAT_R16_SNORM;
++	if (!strcmp(name, "r16_uscaled")) return PSBC_VERTEX_FORMAT_R16_USCALED;
++	if (!strcmp(name, "r16_sscaled")) return PSBC_VERTEX_FORMAT_R16_SSCALED;
++	if (!strcmp(name, "r16_uint")) return PSBC_VERTEX_FORMAT_R16_UINT;
++	if (!strcmp(name, "r16_sint")) return PSBC_VERTEX_FORMAT_R16_SINT;
++	if (!strcmp(name, "r16g16_uscaled")) return PSBC_VERTEX_FORMAT_R16G16_USCALED;
++	if (!strcmp(name, "r16g16_sscaled")) return PSBC_VERTEX_FORMAT_R16G16_SSCALED;
++	if (!strcmp(name, "r16g16_uint")) return PSBC_VERTEX_FORMAT_R16G16_UINT;
++	if (!strcmp(name, "r16g16_sint")) return PSBC_VERTEX_FORMAT_R16G16_SINT;
++	if (!strcmp(name, "r16g16b16_unorm")) return PSBC_VERTEX_FORMAT_R16G16B16_UNORM;
++	if (!strcmp(name, "r16g16b16_snorm")) return PSBC_VERTEX_FORMAT_R16G16B16_SNORM;
++	if (!strcmp(name, "r16g16b16_uscaled")) return PSBC_VERTEX_FORMAT_R16G16B16_USCALED;
++	if (!strcmp(name, "r16g16b16_sscaled")) return PSBC_VERTEX_FORMAT_R16G16B16_SSCALED;
++	if (!strcmp(name, "r16g16b16_uint")) return PSBC_VERTEX_FORMAT_R16G16B16_UINT;
++	if (!strcmp(name, "r16g16b16_sint")) return PSBC_VERTEX_FORMAT_R16G16B16_SINT;
++	if (!strcmp(name, "r16g16b16a16_unorm")) return PSBC_VERTEX_FORMAT_R16G16B16A16_UNORM;
++	if (!strcmp(name, "r16g16b16a16_snorm")) return PSBC_VERTEX_FORMAT_R16G16B16A16_SNORM;
++	if (!strcmp(name, "r16g16b16a16_uscaled")) return PSBC_VERTEX_FORMAT_R16G16B16A16_USCALED;
++	if (!strcmp(name, "r16g16b16a16_sscaled")) return PSBC_VERTEX_FORMAT_R16G16B16A16_SSCALED;
++	if (!strcmp(name, "r16g16b16a16_uint")) return PSBC_VERTEX_FORMAT_R16G16B16A16_UINT;
++	if (!strcmp(name, "r16g16b16a16_sint")) return PSBC_VERTEX_FORMAT_R16G16B16A16_SINT;
++	if (!strcmp(name, "r16_float")) return PSBC_VERTEX_FORMAT_R16_FLOAT;
++	if (!strcmp(name, "r16g16b16_float")) return PSBC_VERTEX_FORMAT_R16G16B16_FLOAT;
++	if (!strcmp(name, "r11g11b10_float")) return PSBC_VERTEX_FORMAT_R11G11B10_FLOAT;
++	if (!strcmp(name, "r16g16b16a16_float")) return PSBC_VERTEX_FORMAT_R16G16B16A16_FLOAT;
++	if (!strcmp(name, "r16g16_float")) return PSBC_VERTEX_FORMAT_R16G16_FLOAT;
++	if (!strcmp(name, "r16g16_snorm")) return PSBC_VERTEX_FORMAT_R16G16_SNORM;
++	if (!strcmp(name, "r16g16_unorm")) return PSBC_VERTEX_FORMAT_R16G16_UNORM;
++	if (!strcmp(name, "r64g64b64a64_float")) return PSBC_VERTEX_FORMAT_R64G64B64A64_FLOAT;
++	if (!strcmp(name, "r64g64b64_float")) return PSBC_VERTEX_FORMAT_R64G64B64_FLOAT;
++	if (!strcmp(name, "r64g64_float")) return PSBC_VERTEX_FORMAT_R64G64_FLOAT;
++	if (!strcmp(name, "r64_float")) return PSBC_VERTEX_FORMAT_R64_FLOAT;
++	if (!strcmp(name, "r8g8b8a8_snorm")) return PSBC_VERTEX_FORMAT_R8G8B8A8_SNORM;
++	if (!strcmp(name, "r8g8b8a8_uint")) return PSBC_VERTEX_FORMAT_R8G8B8A8_UINT;
++	if (!strcmp(name, "r8g8b8a8_unorm")) return PSBC_VERTEX_FORMAT_R8G8B8A8_UNORM;
++	if (!strcmp(name, "r8g8_snorm")) return PSBC_VERTEX_FORMAT_R8G8_SNORM;
++	if (!strcmp(name, "r8g8_uint")) return PSBC_VERTEX_FORMAT_R8G8_UINT;
++	if (!strcmp(name, "r8g8_unorm")) return PSBC_VERTEX_FORMAT_R8G8_UNORM;
++	if (!strcmp(name, "r8_uint")) return PSBC_VERTEX_FORMAT_R8_UINT;
 +	return PSBC_VERTEX_FORMAT_NONE;
 +}
 +
@@ -123,7 +180,7 @@ index 945737d..b2755c7 100644
  static CmdOptions parsecmdoptions(int argc, char* argv[]) {
  	CmdOptions res = {
  	    .entrypoint = "main",
-@@ -47,6 +110,14 @@ static CmdOptions parsecmdoptions(int argc, char* argv[]) {
+@@ -47,6 +167,14 @@ static CmdOptions parsecmdoptions(int argc, char* argv[]) {
  			if (i + 1 < argc) {
  				res.outputfile = argv[i + 1];
  			}
@@ -138,7 +195,7 @@ index 945737d..b2755c7 100644
  		} else if (!strcmp(curarg, "-e")) {
  			if (i + 1 < argc) {
  				res.entrypoint = argv[i + 1];
-@@ -65,6 +136,86 @@ static CmdOptions parsecmdoptions(int argc, char* argv[]) {
+@@ -65,6 +193,86 @@ static CmdOptions parsecmdoptions(int argc, char* argv[]) {
  			res.optimise = false;
  		} else if (!strcmp(curarg, "-vv")) {
  			res.verbose = true;
@@ -225,7 +282,7 @@ index 945737d..b2755c7 100644
  		}
  	}
  
-@@ -77,12 +228,23 @@ static inline void showhelp(void) {
+@@ -77,12 +285,23 @@ static inline void showhelp(void) {
  	    "Usage:\n"
  	    "\t-f [path] -- The input SPIRV file to compile\n"
  	    "\t-o [path] -- The output compiled GCN shader file\n"
@@ -249,7 +306,7 @@ index 945737d..b2755c7 100644
  	    "\t-vv -- Enable verbose messages output\n"
  	    "\t-h -- Show this help message\n",
  	    VERSION_STR
-@@ -102,6 +264,166 @@ static inline _Noreturn void fatalf(const char* fmt, ...) {
+@@ -102,6 +321,166 @@ static inline _Noreturn void fatalf(const char* fmt, ...) {
  	exit(EXIT_FAILURE);
  }
  
@@ -416,7 +473,7 @@ index 945737d..b2755c7 100644
  int main(int argc, char** argv) {
  	const CmdOptions opts = parsecmdoptions(argc, argv);
  
-@@ -113,6 +435,9 @@ int main(int argc, char** argv) {
+@@ -113,6 +492,9 @@ int main(int argc, char** argv) {
  	if (!opts.inputfile) {
  		fatal("Please pass an input file");
  	}
@@ -426,7 +483,7 @@ index 945737d..b2755c7 100644
  	if (!opts.outputfile) {
  		fatal("Please pass an output file");
  	}
-@@ -120,7 +445,7 @@ int main(int argc, char** argv) {
+@@ -120,7 +502,7 @@ int main(int argc, char** argv) {
  		fatal("Please pass a valid shader stage");
  	}
  
@@ -435,7 +492,7 @@ index 945737d..b2755c7 100644
  	if (!inputhandle) {
  		fatalf("Failed to open input file with %s", strerror(errno));
  	}
-@@ -140,42 +465,82 @@ int main(int argc, char** argv) {
+@@ -140,42 +522,82 @@ int main(int argc, char** argv) {
  
  	fclose(inputhandle);
  
@@ -527,7 +584,7 @@ index 945737d..b2755c7 100644
  
  	psbc_free_output(&output);
 diff --git a/libpsbc/psbc_compile.c b/libpsbc/psbc_compile.c
-index bacbc6a..e2a874c 100644
+index bacbc6a..56873f8 100644
 --- a/libpsbc/psbc_compile.c
 +++ b/libpsbc/psbc_compile.c
 @@ -12,6 +12,7 @@
@@ -1731,7 +1788,7 @@ index bacbc6a..e2a874c 100644
          ac_info->has_fma_mix = true;
      } else if (gfxlevel == GFX10) {
          ac_info->max_waves_per_simd = 20;
-@@ -928,26 +1992,1338 @@ static void setup_target(PsbcTarget target,
+@@ -928,26 +1992,1379 @@ static void setup_target(PsbcTarget target,
      }
  }
  
@@ -2074,6 +2131,47 @@ index bacbc6a..e2a874c 100644
 +    case PSBC_VERTEX_FORMAT_R32G32_UINT: return PIPE_FORMAT_R32G32_UINT;
 +    case PSBC_VERTEX_FORMAT_R32G32B32_UINT: return PIPE_FORMAT_R32G32B32_UINT;
 +    case PSBC_VERTEX_FORMAT_R32G32B32A32_UINT: return PIPE_FORMAT_R32G32B32A32_UINT;
++    case PSBC_VERTEX_FORMAT_R8_UNORM: return PIPE_FORMAT_R8_UNORM;
++    case PSBC_VERTEX_FORMAT_R8_SNORM: return PIPE_FORMAT_R8_SNORM;
++    case PSBC_VERTEX_FORMAT_R8_USCALED: return PIPE_FORMAT_R8_USCALED;
++    case PSBC_VERTEX_FORMAT_R8_SSCALED: return PIPE_FORMAT_R8_SSCALED;
++    case PSBC_VERTEX_FORMAT_R8_SINT: return PIPE_FORMAT_R8_SINT;
++    case PSBC_VERTEX_FORMAT_R8G8_USCALED: return PIPE_FORMAT_R8G8_USCALED;
++    case PSBC_VERTEX_FORMAT_R8G8_SSCALED: return PIPE_FORMAT_R8G8_SSCALED;
++    case PSBC_VERTEX_FORMAT_R8G8_SINT: return PIPE_FORMAT_R8G8_SINT;
++    case PSBC_VERTEX_FORMAT_R8G8B8_UNORM: return PIPE_FORMAT_R8G8B8_UNORM;
++    case PSBC_VERTEX_FORMAT_R8G8B8_SNORM: return PIPE_FORMAT_R8G8B8_SNORM;
++    case PSBC_VERTEX_FORMAT_R8G8B8_USCALED: return PIPE_FORMAT_R8G8B8_USCALED;
++    case PSBC_VERTEX_FORMAT_R8G8B8_SSCALED: return PIPE_FORMAT_R8G8B8_SSCALED;
++    case PSBC_VERTEX_FORMAT_R8G8B8_UINT: return PIPE_FORMAT_R8G8B8_UINT;
++    case PSBC_VERTEX_FORMAT_R8G8B8_SINT: return PIPE_FORMAT_R8G8B8_SINT;
++    case PSBC_VERTEX_FORMAT_R8G8B8A8_USCALED: return PIPE_FORMAT_R8G8B8A8_USCALED;
++    case PSBC_VERTEX_FORMAT_R8G8B8A8_SSCALED: return PIPE_FORMAT_R8G8B8A8_SSCALED;
++    case PSBC_VERTEX_FORMAT_R8G8B8A8_SINT: return PIPE_FORMAT_R8G8B8A8_SINT;
++    case PSBC_VERTEX_FORMAT_R16_UNORM: return PIPE_FORMAT_R16_UNORM;
++    case PSBC_VERTEX_FORMAT_R16_SNORM: return PIPE_FORMAT_R16_SNORM;
++    case PSBC_VERTEX_FORMAT_R16_USCALED: return PIPE_FORMAT_R16_USCALED;
++    case PSBC_VERTEX_FORMAT_R16_SSCALED: return PIPE_FORMAT_R16_SSCALED;
++    case PSBC_VERTEX_FORMAT_R16_UINT: return PIPE_FORMAT_R16_UINT;
++    case PSBC_VERTEX_FORMAT_R16_SINT: return PIPE_FORMAT_R16_SINT;
++    case PSBC_VERTEX_FORMAT_R16G16_USCALED: return PIPE_FORMAT_R16G16_USCALED;
++    case PSBC_VERTEX_FORMAT_R16G16_SSCALED: return PIPE_FORMAT_R16G16_SSCALED;
++    case PSBC_VERTEX_FORMAT_R16G16_UINT: return PIPE_FORMAT_R16G16_UINT;
++    case PSBC_VERTEX_FORMAT_R16G16_SINT: return PIPE_FORMAT_R16G16_SINT;
++    case PSBC_VERTEX_FORMAT_R16G16B16_UNORM: return PIPE_FORMAT_R16G16B16_UNORM;
++    case PSBC_VERTEX_FORMAT_R16G16B16_SNORM: return PIPE_FORMAT_R16G16B16_SNORM;
++    case PSBC_VERTEX_FORMAT_R16G16B16_USCALED: return PIPE_FORMAT_R16G16B16_USCALED;
++    case PSBC_VERTEX_FORMAT_R16G16B16_SSCALED: return PIPE_FORMAT_R16G16B16_SSCALED;
++    case PSBC_VERTEX_FORMAT_R16G16B16_UINT: return PIPE_FORMAT_R16G16B16_UINT;
++    case PSBC_VERTEX_FORMAT_R16G16B16_SINT: return PIPE_FORMAT_R16G16B16_SINT;
++    case PSBC_VERTEX_FORMAT_R16G16B16A16_UNORM: return PIPE_FORMAT_R16G16B16A16_UNORM;
++    case PSBC_VERTEX_FORMAT_R16G16B16A16_SNORM: return PIPE_FORMAT_R16G16B16A16_SNORM;
++    case PSBC_VERTEX_FORMAT_R16G16B16A16_USCALED: return PIPE_FORMAT_R16G16B16A16_USCALED;
++    case PSBC_VERTEX_FORMAT_R16G16B16A16_SSCALED: return PIPE_FORMAT_R16G16B16A16_SSCALED;
++    case PSBC_VERTEX_FORMAT_R16G16B16A16_UINT: return PIPE_FORMAT_R16G16B16A16_UINT;
++    case PSBC_VERTEX_FORMAT_R16G16B16A16_SINT: return PIPE_FORMAT_R16G16B16A16_SINT;
++    case PSBC_VERTEX_FORMAT_R16_FLOAT: return PIPE_FORMAT_R16_FLOAT;
++    case PSBC_VERTEX_FORMAT_R16G16B16_FLOAT: return PIPE_FORMAT_R16G16B16_FLOAT;
 +    default: return PIPE_FORMAT_NONE;
 +    }
 +}
@@ -3075,7 +3173,7 @@ index bacbc6a..e2a874c 100644
  
      /* Ensure library is initialized */
      psbc_init();
-@@ -959,79 +3335,344 @@ PsbcResult psbc_compile_shader(
+@@ -959,79 +3376,344 @@ PsbcResult psbc_compile_shader(
      setup_target(opts->target, &gfxlevel, &chipfamily, &neo);
  
      /* Construct ac_compiler_info for the target GPU */
@@ -3469,7 +3567,7 @@ index bacbc6a..e2a874c 100644
  
      /* Determine previous stage for shader args declaration.
       * HS/GS need previous_stage=VERTEX so that the merged-pipeline args
-@@ -1046,19 +3687,40 @@ PsbcResult psbc_compile_shader(
+@@ -1046,19 +3728,40 @@ PsbcResult psbc_compile_shader(
      default:                    previous_stage = MESA_SHADER_NONE;      break;
      }
  
@@ -3515,7 +3613,7 @@ index bacbc6a..e2a874c 100644
          /* Convert emit_vertex to emit_vertex_with_counter */
          NIR_PASS(_, nir, nir_lower_gs_intrinsics,
                   nir_lower_gs_intrinsics_per_stream);
-@@ -1068,7 +3730,7 @@ PsbcResult psbc_compile_shader(
+@@ -1068,7 +3771,7 @@ PsbcResult psbc_compile_shader(
              .gfx_level = gfxlevel,
              .export_clipdist_mask = 0xff,
              .write_pos_to_clipvertex = true,
@@ -3524,7 +3622,7 @@ index bacbc6a..e2a874c 100644
              .disable_streamout = true,
          };
          nir_shader* gs_copy = NULL;
-@@ -1080,16 +3742,76 @@ PsbcResult psbc_compile_shader(
+@@ -1080,16 +3783,76 @@ PsbcResult psbc_compile_shader(
              ralloc_free(gs_copy);
      }
  
@@ -3605,7 +3703,7 @@ index bacbc6a..e2a874c 100644
          psbc_shutdown();
          return PSBC_RESULT_COMPILE_ACO;
      }
-@@ -1098,6 +3820,22 @@ PsbcResult psbc_compile_shader(
+@@ -1098,6 +3861,22 @@ PsbcResult psbc_compile_shader(
      struct radv_shader_binary_legacy* legacy =
          (struct radv_shader_binary_legacy*)binary;
  
@@ -3628,7 +3726,7 @@ index bacbc6a..e2a874c 100644
      /* The data layout in radv_shader_binary_legacy is:
       * [stats | code | ir | disasm | debug_info]
       * Code starts at offset stats_size. */
-@@ -1107,7 +3845,7 @@ PsbcResult psbc_compile_shader(
+@@ -1107,7 +3886,7 @@ PsbcResult psbc_compile_shader(
      /* Build the PS4/PS5 shader binary */
      const BuildContext buildctx = {
          .rinfo = &binary->info,
@@ -3637,7 +3735,7 @@ index bacbc6a..e2a874c 100644
          .config = &binary->config,
          .nir = nir,
          .gfx_level = gfxlevel,
-@@ -1116,28 +3854,130 @@ PsbcResult psbc_compile_shader(
+@@ -1116,28 +3895,130 @@ PsbcResult psbc_compile_shader(
          .psbc_stage = opts->stage,
          .spirv_data = spirv,
          .spirv_size = spirv_size,
@@ -3772,7 +3870,7 @@ index bacbc6a..e2a874c 100644
  }
  
  const char* psbc_result_string(PsbcResult result) {
-@@ -1149,6 +3989,7 @@ const char* psbc_result_string(PsbcResult result) {
+@@ -1149,6 +4030,7 @@ const char* psbc_result_string(PsbcResult result) {
      case PSBC_RESULT_COMPILE_ACO:      return "ACO shader compilation failed";
      case PSBC_RESULT_OUT_OF_MEMORY:    return "out of memory";
      case PSBC_RESULT_INTERNAL_ERROR:   return "internal error";
@@ -3781,7 +3879,7 @@ index bacbc6a..e2a874c 100644
      }
  }
 diff --git a/libpsbc/psbc_compile.h b/libpsbc/psbc_compile.h
-index 000e7e1..1cde67b 100644
+index 000e7e1..2013b11 100644
 --- a/libpsbc/psbc_compile.h
 +++ b/libpsbc/psbc_compile.h
 @@ -20,6 +20,11 @@
@@ -3796,7 +3894,7 @@ index 000e7e1..1cde67b 100644
  /* === Types === */
  
  typedef enum {
-@@ -49,11 +54,188 @@ typedef enum {
+@@ -49,11 +54,229 @@ typedef enum {
      PSBC_RESULT_COMPILE_ACO,
      PSBC_RESULT_OUT_OF_MEMORY,
      PSBC_RESULT_INTERNAL_ERROR,
@@ -3861,6 +3959,47 @@ index 000e7e1..1cde67b 100644
 +    PSBC_VERTEX_FORMAT_R8G8B8A8_UINT,
 +    PSBC_VERTEX_FORMAT_R8G8_UNORM,
 +    PSBC_VERTEX_FORMAT_R8G8_SNORM,
++    PSBC_VERTEX_FORMAT_R8_UNORM,
++    PSBC_VERTEX_FORMAT_R8_SNORM,
++    PSBC_VERTEX_FORMAT_R8_USCALED,
++    PSBC_VERTEX_FORMAT_R8_SSCALED,
++    PSBC_VERTEX_FORMAT_R8_SINT,
++    PSBC_VERTEX_FORMAT_R8G8_USCALED,
++    PSBC_VERTEX_FORMAT_R8G8_SSCALED,
++    PSBC_VERTEX_FORMAT_R8G8_SINT,
++    PSBC_VERTEX_FORMAT_R8G8B8_UNORM,
++    PSBC_VERTEX_FORMAT_R8G8B8_SNORM,
++    PSBC_VERTEX_FORMAT_R8G8B8_USCALED,
++    PSBC_VERTEX_FORMAT_R8G8B8_SSCALED,
++    PSBC_VERTEX_FORMAT_R8G8B8_UINT,
++    PSBC_VERTEX_FORMAT_R8G8B8_SINT,
++    PSBC_VERTEX_FORMAT_R8G8B8A8_USCALED,
++    PSBC_VERTEX_FORMAT_R8G8B8A8_SSCALED,
++    PSBC_VERTEX_FORMAT_R8G8B8A8_SINT,
++    PSBC_VERTEX_FORMAT_R16_UNORM,
++    PSBC_VERTEX_FORMAT_R16_SNORM,
++    PSBC_VERTEX_FORMAT_R16_USCALED,
++    PSBC_VERTEX_FORMAT_R16_SSCALED,
++    PSBC_VERTEX_FORMAT_R16_UINT,
++    PSBC_VERTEX_FORMAT_R16_SINT,
++    PSBC_VERTEX_FORMAT_R16G16_USCALED,
++    PSBC_VERTEX_FORMAT_R16G16_SSCALED,
++    PSBC_VERTEX_FORMAT_R16G16_UINT,
++    PSBC_VERTEX_FORMAT_R16G16_SINT,
++    PSBC_VERTEX_FORMAT_R16G16B16_UNORM,
++    PSBC_VERTEX_FORMAT_R16G16B16_SNORM,
++    PSBC_VERTEX_FORMAT_R16G16B16_USCALED,
++    PSBC_VERTEX_FORMAT_R16G16B16_SSCALED,
++    PSBC_VERTEX_FORMAT_R16G16B16_UINT,
++    PSBC_VERTEX_FORMAT_R16G16B16_SINT,
++    PSBC_VERTEX_FORMAT_R16G16B16A16_UNORM,
++    PSBC_VERTEX_FORMAT_R16G16B16A16_SNORM,
++    PSBC_VERTEX_FORMAT_R16G16B16A16_USCALED,
++    PSBC_VERTEX_FORMAT_R16G16B16A16_SSCALED,
++    PSBC_VERTEX_FORMAT_R16G16B16A16_UINT,
++    PSBC_VERTEX_FORMAT_R16G16B16A16_SINT,
++    PSBC_VERTEX_FORMAT_R16_FLOAT,
++    PSBC_VERTEX_FORMAT_R16G16B16_FLOAT,
 +} PsbcVertexFormat;
 +
 +typedef struct {
@@ -3987,7 +4126,7 @@ index 000e7e1..1cde67b 100644
  } PsbcShaderOutput;
  
  typedef struct {
-@@ -61,8 +243,72 @@ typedef struct {
+@@ -61,8 +284,72 @@ typedef struct {
      PsbcStage   stage;
      const char* entrypoint;  /* Default: "main" */
      bool        optimise;    /* Default: true */
@@ -4060,7 +4199,7 @@ index 000e7e1..1cde67b 100644
  /* === API === */
  
  /*
-@@ -77,20 +323,26 @@ void psbc_init(void);
+@@ -77,20 +364,26 @@ void psbc_init(void);
   */
  void psbc_shutdown(void);
  
@@ -4092,7 +4231,7 @@ index 000e7e1..1cde67b 100644
   */
  PsbcResult psbc_compile_shader(
      const uint32_t*       spirv,
-@@ -99,6 +351,55 @@ PsbcResult psbc_compile_shader(
+@@ -99,6 +392,55 @@ PsbcResult psbc_compile_shader(
      PsbcShaderOutput*     out
  );
  
