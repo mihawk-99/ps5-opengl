@@ -5,6 +5,7 @@
 
 """Compile the actual queued-presentation tail and completion checks with mocks."""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -346,6 +347,7 @@ code = r'''
 #define PS5_PROFILE_MARK(i) ((void)0)
 static int flushes;
 static int writes_scanout;
+static int runtime_scanout_flush_needed = 1;
 #ifdef TEST_SCANOUT_CLASSIFICATION
 #define PS5_RUNTIME_WRITES_SCANOUT() writes_scanout
 #endif
@@ -365,6 +367,7 @@ int main(void) {
         int same_pointer = state & 8, same_size = state & 16;
         int larger_registration = state & 32; /* The application registers its entire render arena. */
         flushes = 0;
+        runtime_scanout_flush_needed = 1; /* Each state starts on a new pool. */
         run(active, queued ? 2 : 0, registered, pools, 64,
             pools + !same_pointer, larger_registration ? 128 : same_size ? 64 : 32);
 #ifdef PS5_GPU_PRESENT_BATCH
@@ -397,6 +400,25 @@ int main(void) {
 #else
     assert(flushes == published + 1);
 #endif
+    /* Unbatched GPU writes to a registered pool (each window glClear) flush it once,
+     * until a new pool or registration; an unregistered pool is flushed every time. */
+    writes_scanout = 1;
+    runtime_scanout_flush_needed = 1;
+    flushes = 0;
+    run(0, 0, 1, pools, 64, pools, 64);
+    run(0, 0, 1, pools, 64, pools, 64);
+    run(0, 0, 1, pools, 64, pools, 64);
+#ifdef PS5_GPU_PRESENT_BATCH
+    assert(flushes == 1);
+#else
+    assert(flushes == 3);
+#endif
+    flushes = 0;
+    runtime_scanout_flush_needed = 1;
+    run(0, 0, 1, pools, 64, pools, 64);
+    run(0, 0, 0, pools, 64, pools, 64);
+    run(0, 0, 0, pools, 64, pools, 64);
+    assert(flushes == 3);
 }
 '''
 with tempfile.TemporaryDirectory() as tmp:
@@ -407,7 +429,12 @@ with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", *flags,
                         str(c), "-o", str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
-print("PASS: registered GPU pool survives queue splits; CPU publication, replacement and default paths retained")
+# Every new pool and every registration or release of the scanout pool asks for its
+# one whole-pool flush again.
+assert len(re.findall(r"(?m)^\s+runtime_scanout_flush_needed = 1;", source)) == 3, \
+    "pool changes must re-arm the flush"
+print("PASS: registered GPU pool survives queue splits and repeated unbatched writes; "
+      "CPU publication, replacement and default paths retained")
 
 screen = (root / "src/gallium/ps5/ps5_screen.c").read_text()
 start = screen.index("struct ps5_batch_flush_cache {")

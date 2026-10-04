@@ -73,6 +73,7 @@ typedef struct { void *a, *b, *c, *d; } video_buffer_t;
 #define VIDEO_OUT_PIXEL_FORMAT 1
 static video_api_t runtime_video_api;
 static int runtime_video_handle = -1, runtime_video_registered;
+static int runtime_scanout_flush_needed; /* Re-armed by every registration and release. */
 static unsigned char *runtime_video_framebuffer;
 static size_t runtime_video_framebuffer_size;
 static unsigned runtime_present_count;
@@ -268,6 +269,7 @@ int main(void) {
         assert(closes == (n <= 120) && unregisters == 0);
         if (n > 120)
             assert(runtime_video_handle == 7 && runtime_video_registered && runtime_video_framebuffer == scanout);
+            assert(runtime_scanout_flush_needed == 1);
     }
     setup(); pending_error = -21;
     assert(runtime_video_wait_idle() != 0 && !waits && pending_calls == 1);
