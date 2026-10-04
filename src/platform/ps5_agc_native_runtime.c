@@ -202,10 +202,21 @@ int ps5_agc_gate2_set_tessellation(const void *hs, size_t hs_size,
     return 0;
 }
 
+/* Whether the registered scanout pool may still hold dirty CPU cache lines from
+ * before the GPU first wrote it: set for each new pool or registration, cleared
+ * by its one whole-pool flush. Gallium's CPU writers (the clear fallback,
+ * transfers) flush the ranges they modify, and reads invalidate theirs, so an
+ * unbatched GPU write to a pool already flushed needs no second 2-buffer flush.
+ * Without this, every unbatched scanout write (each glClear of the window)
+ * flushed the whole pool: about 8 ms a 1080p clear on the console. */
+static int runtime_scanout_flush_needed = 1;
+
 int ps5_agc_gate2_set_framebuffer(void *framebuffer, size_t size)
 {
     if (!framebuffer || !size)
         return -1;
+    if (framebuffer != runtime_framebuffer || size != runtime_framebuffer_size)
+        runtime_scanout_flush_needed = 1;
     runtime_framebuffer = framebuffer;
     runtime_framebuffer_size = size;
     return 0;
@@ -2299,6 +2310,7 @@ int ps5_agc_gate2_shutdown_present(void)
     runtime_video_framebuffer = NULL;
     runtime_video_framebuffer_size = 0;
     runtime_video_registered = 0;
+    runtime_scanout_flush_needed = 1;
     runtime_present_count = 0;
 #ifdef PS5_GPU_PRESENT_BATCH
     if (runtime_gpu_present_count)
@@ -2405,6 +2417,7 @@ static int runtime_video_acquire(const video_api_t *video,
     runtime_video_framebuffer = framebuffer;
     runtime_video_framebuffer_size = framebuffer_size;
     runtime_video_registered = 1;
+    runtime_scanout_flush_needed = 1;
     printf("[ps5-agc] present-open handle=%08" PRIx32
            " framebuffer=%p/%zu buffers=2 alias=%u\n",
            (uint32_t)runtime_video_handle, framebuffer,
@@ -4218,9 +4231,18 @@ int main(void)
 #endif
          ) || !runtime_video_registered ||
         framebuffer != runtime_video_framebuffer ||
-        framebuffer_pool_bytes > runtime_video_framebuffer_size)
-#endif
+        framebuffer_pool_bytes > runtime_video_framebuffer_size) {
+        const int registered_pool = runtime_video_registered &&
+            framebuffer == runtime_video_framebuffer &&
+            framebuffer_pool_bytes <= runtime_video_framebuffer_size;
+        if (!registered_pool || runtime_scanout_flush_needed)
+            flush_gpu_data(framebuffer, framebuffer_pool_bytes);
+        if (registered_pool)
+            runtime_scanout_flush_needed = 0;
+    }
+#else
     flush_gpu_data(framebuffer, framebuffer_pool_bytes);
+#endif
     PS5_PROFILE_MARK(2);
 #ifdef AGC_RUNTIME_PACKAGES
 #ifdef PS5_ASYNC_NATIVE_PREP
