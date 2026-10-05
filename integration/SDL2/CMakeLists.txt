@@ -18,10 +18,18 @@ set(SDL_HIDAPI_JOYSTICK OFF CACHE BOOL "" FORCE)
 set(SDL_PTHREADS ON CACHE BOOL "" FORCE)
 set(SDL_SOURCE_VERSION "2.30.12-g8c56053f13ca-g26")
 set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
-foreach(feature AUDIO RENDER HAPTIC SENSOR OPENGL OPENGLES VULKAN X11
+foreach(feature RENDER HAPTIC SENSOR OPENGL OPENGLES VULKAN X11
                 WAYLAND KMSDRM OFFSCREEN JACK PULSEAUDIO DBUS IBUS FCITX LIBUDEV)
     set(SDL_${feature} OFF CACHE BOOL "" FORCE)
 endforeach()
+# Sound: the pinned fork's PS5 driver (src/audio/ps5), sceAudioOut on the main port
+# at 48 kHz, as the console's other titles open it; the host test keeps it off.
+# Without it a consumer (EmulationStation) opened no device and played nothing.
+if(G19_HOST_TEST)
+    set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+else()
+    set(SDL_AUDIO ON CACHE BOOL "" FORCE)
+endif()
 if(G19_HOST_TEST)
     add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
     add_link_options(-fsanitize=address,undefined)
